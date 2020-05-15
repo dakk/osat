@@ -32,13 +32,15 @@ let parse_file f =
   | None -> []
   | Some(s) -> (match s.descr with 
     | Statement.Clause(ts) -> (ts_parse ts)::(ite ())
-    | s -> ite ())
+    | _ -> ite ())
   in 
   let rec andize sl = match sl with
   | c::c'::[] -> And(c, c')
   | c::cl -> And (c, andize cl)
   in
-  andize @@ ite()
+  let r = andize @@ ite() in 
+  cl ();
+  r
 ;;
 
 
@@ -61,7 +63,7 @@ let rec fv b = match b with
 | And (t, t') -> fv t <|> fv t'
 | Or (t, t') -> fv t <|> fv t'
 | Not (t) -> fv t
-| Const (b) -> None
+| Const (_) -> None
 | Var (v) -> Some (v)
 ;;
 
@@ -91,7 +93,8 @@ let rec simpl b = match b with
 | Not (t) -> (match simpl t with
   | Const(v) -> Const(not v)
   | st -> Not (st))
-| cov -> cov
+| Const v -> Const v
+| Var v -> Var v
 ;;
 
 (* actualize value *)
@@ -124,7 +127,57 @@ let rec dist b = match b with
 | _ -> b
 ;;
 
+
+(* transform to cnf *)
 let rec cnf b =
   let b' = dist b |> remneg in
   if b' = b then b else cnf b'
+;;
+
+
+(* eliminate literal which have always the same polarity *)
+module LS = Set.Make(Int);;
+
+let rec literals b = match b with 
+| Var x -> LS.of_list [x]
+| Not b' -> literals b'
+| And (x, x') -> LS.union (literals x) (literals x')
+| Or (x, x') -> LS.union (literals x) (literals x')
+| _ -> LS.empty
+;;
+
+(* evalute polarity of v; we can do this with the other function for optimization *)
+let rec lit_polarity b v = match b with 
+| Var x when x=v -> `P
+| Not (Var x) when x=v -> `N
+| Or (x, x')
+| And (x, x') -> (
+  match lit_polarity x v, lit_polarity x' v with
+  | `P, `O
+  | `O, `P
+  | `P, `P -> `P
+
+  | `N, `O
+  | `O, `N
+  | `N, `N -> `N
+  
+  | `P, `N
+  | `N, `P
+  | `M, _
+  | _, `M -> `M
+
+  | _, _ -> `O
+)  
+| _ -> `O
+;;
+
+
+let lit_elim b = 
+  let rec rem_lit b v = match lit_polarity b v with 
+  | `P -> Printf.printf "remvoed pos\n%!"; repl b v true
+  | `N -> Printf.printf "remvoed neg\n%!";repl b v false
+  | _ -> b
+  in
+  let lits = literals b |> LS.elements in 
+  List.fold_left (fun c x -> rem_lit c x) b lits
 ;;

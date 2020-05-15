@@ -7,8 +7,10 @@ let solvers : (string * (module Solver.t)) list = [
 (* open Bexp;;
 
 let (module S: Solver.t) = (List.assoc "bt" solvers) in 
-let t = And(Or(Var 1, Not (Var 2)), Or(Not (Var 1), Not (Var 2))) in
-let s = S.solve t in
+let t = And (Or (Var 1, Var 2), Or (Var 1, Not (Var 2))) in
+
+printf "%s\n" (to_string @@ lit_elim t); *)
+(* let s = S.solve t in
 Solver.print_sol s;
 printf "verify sol: %b\n" @@ Solver.verify_sol t s;
 let t = Or(Not (Var 1), Not (Var 2)) in
@@ -32,10 +34,15 @@ let main () =
     printf "satisfiable: %b\n%!" satisf;
     if satisf then ( *)
     try 
+      let t = Bexp.simpl @@ Bexp.lit_elim t in
+      (* @@ Bexp.cnf t in *)
+      (* let a = Unix.time () in *)
       let s = S.solve t in
+      (* let b = Unix.time () -. a in *)
       printf "solution found:\n%!";
       Solver.print_sol s;
-      printf "verify sol: %b\n" @@ Solver.verify_sol t s
+      (* printf "found in %f seconds\n" b *)
+      printf "verify sol: %b\n" (Solver.verify_sol t s)
     with | _ -> printf "no solution found\n%!";
   )
 in main();;
