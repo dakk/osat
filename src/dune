@@ -1,5 +1,6 @@
 (executable
  (name osat)
+ (libraries dolmen)
  (modules osat bexp solver solver_bt))
 
 (env

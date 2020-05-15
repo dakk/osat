@@ -1,3 +1,7 @@
+open Dolmen;;
+
+module M = Dimacs.Make(ParseLocation)(Term)(Statement);;
+
 type t = 
 | And of t * t 
 | Or of t * t
@@ -6,12 +10,37 @@ type t =
 | Var of int
 ;;
 
-type p = {
-  exp: t;
-  comments: string list;
-  vars: int;
-  clauses: int;
-};;
+(* parse a cnf file using dolmen, but we use our representation *)
+let parse_file f = 
+  let rec symbol_to_var t = match t with 
+  | Term.Symbol(s) -> Var (int_of_string @@ String.sub s.name 1 @@ (String.length s.name) - 1)
+  | Term.App (f, s) -> Not (symbol_to_var (List.hd s).term)
+  in
+  let rec ts_parse ts = match ts with 
+  | (t: Term.t)::[] -> symbol_to_var t.term
+  | (t: Term.t)::t'::[] -> (match t.term with 
+    | Term.Symbol (s) -> Or (symbol_to_var t.term, symbol_to_var t'.term)
+    | Term.App (f, s) -> Or (Not (symbol_to_var (List.hd s).term), symbol_to_var t'.term)
+  )
+  | (t: Term.t)::t'::ts' -> (match t.term with 
+    | Term.Symbol (s) -> Or (symbol_to_var t.term, ts_parse (t'::ts'))
+    | Term.App (f, s) -> Or (Not (symbol_to_var (List.hd s).term), ts_parse (t'::ts'))
+  )
+  in
+  let (sp, cl) = M.parse_input (`File f) in
+  let rec ite () = match sp () with
+  | None -> []
+  | Some(s) -> (match s.descr with 
+    | Statement.Clause(ts) -> (ts_parse ts)::(ite ())
+    | s -> ite ())
+  in 
+  let rec andize sl = match sl with
+  | c::c'::[] -> And(c, c')
+  | c::cl -> And (c, andize cl)
+  in
+  andize @@ ite()
+;;
+
 
 let rec to_string l = match l with
 | And (t, t') -> Printf.sprintf "(%s && %s)" (to_string t) (to_string t')
