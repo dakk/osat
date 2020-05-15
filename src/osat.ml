@@ -27,13 +27,15 @@ let main () =
     let f = Sys.argv.(2) in
     printf "loading %s... %!" f;
     let t = Bexp.parse_file f in 
-    printf "done\nrunning satisfiable (using %s solver)...\n%!" Sys.argv.(1);
-    let satisf = (S.satisfiable t) in
+    printf "done\nrunning solver (%s)...\n%!" Sys.argv.(1);
+    (* let satisf = (S.satisfiable t) in
     printf "satisfiable: %b\n%!" satisf;
-    if satisf then (
+    if satisf then ( *)
+    try 
       let s = S.solve t in
+      printf "solution found:\n%!";
       Solver.print_sol s;
       printf "verify sol: %b\n" @@ Solver.verify_sol t s
-    )
+    with | _ -> printf "no solution found\n%!";
   )
 in main();;
