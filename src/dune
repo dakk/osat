@@ -1,0 +1,7 @@
+(executable
+ (name osat)
+ (modules osat bexp solver solver_bt))
+
+(env
+  (dev
+    (flags (:standard -warn-error -A))))
