@@ -5,10 +5,13 @@ let solvers : (string * (module Solver.t)) list = [
 ];;
 
 
-let (module S: Solver.t) = (List.hd solvers) |> snd in
-(* printf "%b %b\n%!" (S.satisfiable (Const true)) (S.satisfiable (Const false));
-printf "%b %b\n%!" (S.satisfiable (And (Var 1, Not(Var 1)))) (S.satisfiable (Or (Var 1, Not(Var 1)))); *)
-
-
-let t = Bexp.parse_file "./test/bf.cnf" in 
-printf "%s\n\nsatisfiable: %b\n%!" (Bexp.to_string t) (S.satisfiable t);
+let main () = 
+  if Array.length Sys.argv < 3 then printf "usage: %s solver file.cnf\n" Sys.argv.(0) else (
+    let (module S: Solver.t) = (List.assoc Sys.argv.(1) solvers) in 
+    let f = Sys.argv.(2) in
+    printf "loading %s... %!" f;
+    let t = Bexp.parse_file f in 
+    printf "done\nrunning satisfiable (using %s solver)...\n%!" Sys.argv.(1);
+    printf "satisfiable: %b\n%!" (S.satisfiable t)
+  )
+in main();;
