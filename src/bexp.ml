@@ -71,7 +71,7 @@ let rec repl b var v = match b with
 | Or (t, t') -> Or (repl t var v, repl t' var v)
 | Not (t) -> Not (repl t var v)
 | Const (b) -> Const (b)
-| Var (n) -> if n = var then Const (v) else Var (n)
+| Var (n) -> if n <> var then Var(n) else Const (v)
 ;;
 
 (* simplify an expr *)
@@ -80,8 +80,8 @@ let rec simpl b = match b with
   let st = simpl t in
   let st' = simpl t' in
   (match st, st' with
-  | Const(v), Const(v') -> Const (v && v')
-  | _, _ -> And (st, st'))
+    | Const(v), Const(v') -> Const (v && v')
+    | _, _ -> And (st, st'))
 | Or (t, t') -> 
   let st = simpl t in
   let st' = simpl t' in
@@ -90,7 +90,7 @@ let rec simpl b = match b with
   | _, _ -> Or (st, st'))
 | Not (t) -> (match simpl t with
   | Const(v) -> Const(not v)
-  | st -> st)
+  | st -> Not (st))
 | cov -> cov
 ;;
 
