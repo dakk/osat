@@ -12,6 +12,12 @@ let main () =
     printf "loading %s... %!" f;
     let t = Bexp.parse_file f in 
     printf "done\nrunning satisfiable (using %s solver)...\n%!" Sys.argv.(1);
-    printf "satisfiable: %b\n%!" (S.satisfiable t)
+    let satisf = (S.satisfiable t) in
+    printf "satisfiable: %b\n%!" satisf;
+    if satisf then (
+      let s = S.solve t in
+      Solver.print_sol s;
+      printf "verify sol: %b\n" @@ Solver.verify_sol t s
+    )
   )
 in main();;
