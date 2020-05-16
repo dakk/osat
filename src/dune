@@ -1,12 +1,7 @@
 (executable
  (name osat)
- (libraries unix dolmen)
- (modules osat bexp solver solver_bt))
-
-(executable
- (name osat2)
- (libraries unix dolmen)
- (modules osat2 bexp2))
+ (libraries dolmen)
+ (modules osat bexp parser solver))
 
 (env
   (dev

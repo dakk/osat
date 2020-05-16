@@ -1,188 +1,114 @@
-open Dolmen;;
+open Printf;;
 
-module M = Dimacs.Make(ParseLocation)(Term)(Statement);;
+(* we define a new abstraction, more suitable for processing, for representing cnf *)
+type lit = Var of int | NVar of int | Const of bool;;
+type clause = lit list;;
+type cnf = clause list;;
 
-type t = 
-| And of t * t 
-| Or of t * t
-| Not of t 
-| Const of bool
-| Var of int
+let pp_lit l = match l with
+| Var (x) -> sprintf "%d" x
+| NVar (x) -> sprintf "!%d" x
+| Const (b) -> sprintf "%b" b
 ;;
 
-(* parse a cnf file using dolmen, but we use our representation *)
-let parse_file f = 
-  let rec symbol_to_var t = match t with 
-  | Term.Symbol(s) -> Var (int_of_string @@ String.sub s.name 1 @@ (String.length s.name) - 1)
-  | Term.App (f, s) -> Not (symbol_to_var (List.hd s).term)
-  in
-  let rec ts_parse ts = match ts with 
-  | (t: Term.t)::[] -> symbol_to_var t.term
-  | (t: Term.t)::t'::[] -> (match t.term with 
-    | Term.Symbol (s) -> Or (symbol_to_var t.term, symbol_to_var t'.term)
-    | Term.App (f, s) -> Or (Not (symbol_to_var (List.hd s).term), symbol_to_var t'.term)
-  )
-  | (t: Term.t)::t'::ts' -> (match t.term with 
-    | Term.Symbol (s) -> Or (symbol_to_var t.term, ts_parse (t'::ts'))
-    | Term.App (f, s) -> Or (Not (symbol_to_var (List.hd s).term), ts_parse (t'::ts'))
-  )
-  in
-  let (sp, cl) = M.parse_input (`File f) in
-  let rec ite () = match sp () with
-  | None -> []
-  | Some(s) -> (match s.descr with 
-    | Statement.Clause(ts) -> (ts_parse ts)::(ite ())
-    | _ -> ite ())
-  in 
-  let rec andize sl = match sl with
-  | c::c'::[] -> And(c, c')
-  | c::cl -> And (c, andize cl)
-  in
-  let r = andize @@ ite() in 
-  cl ();
-  r
+let rec pp_clause c = match c with
+| [] -> "\n"
+| c'::cl' -> sprintf "%s || %s" (pp_lit c') (pp_clause cl')
+;;
+
+let rec pp_cnf c = match c with
+| [] -> "\n"
+| c'::cl' -> sprintf "%s\n%s" (pp_clause c') (pp_cnf cl')
 ;;
 
 
-let rec to_string l = match l with
-| And (t, t') -> Printf.sprintf "(%s && %s)" (to_string t) (to_string t')
-| Or (t, t') -> Printf.sprintf "(%s || %s)" (to_string t) (to_string t')
-| Not (t) -> Printf.sprintf "!%s" (to_string t)
-| Const (b) -> if b then "t" else "f"
-| Var (v) -> Printf.sprintf "%d" v
+
+
+(* replace from cnf c literal l with v *)
+let rec repl c l v = 
+  let rec rc cl = match cl with
+  | [] -> []
+  | (Var x)::cl' when x = l -> (Const v)::(rc cl')
+  | (NVar x)::cl' when x = l -> (Const (not v))::(rc cl')
+  | x::cl' -> x::(rc cl')
+in match c with
+| [] -> []
+| x::c' -> (rc x)::(repl c' l v)
 ;;
 
-let (<|>) a b = match a, b with 
-| Some(t), _ -> Some(t)
-| None, Some(t) -> Some(t)
-| _, _ -> None
+(* solve a clause; if has a true, is true, if has n false is false *)
+let rec clause_solve cl f i acc = match cl with 
+| [] -> if f = i then [Const false] else acc
+| (Const true)::cl' -> [Const true]
+| (Const false)::cl' -> clause_solve cl' (f+1) (i+1) acc
+| c::cl' -> clause_solve cl' f (i+1) (c::acc)
 ;;
+
+(* simplify a cnf *)
+let rec simpl b = 
+  List.fold_left (fun acc c -> 
+    let c' = clause_solve c 0 0 [] in 
+    if c' <> [Const true] then c'::acc else acc
+  ) [] b
+;;
+
 
 (* return first free variable *)
-let rec fv b = match b with
-| And (t, t') -> fv t <|> fv t'
-| Or (t, t') -> fv t <|> fv t'
-| Not (t) -> fv t
-| Const (_) -> None
-| Var (v) -> Some (v)
-;;
-
-(* replace var with value v *)
-let rec repl b var v = match b with 
-| And (t, t') -> And (repl t var v, repl t' var v)
-| Or (t, t') -> Or (repl t var v, repl t' var v)
-| Not (t) -> Not (repl t var v)
-| Const (b) -> Const (b)
-| Var (n) -> if n <> var then Var(n) else Const (v)
-;;
-
-(* simplify an expr *)
-let rec simpl b = match b with 
-| And (t, t') -> 
-  let st = simpl t in
-  let st' = simpl t' in
-  (match st, st' with
-    | Const(v), Const(v') -> Const (v && v')
-    | _, _ -> And (st, st'))
-| Or (t, t') -> 
-  let st = simpl t in
-  let st' = simpl t' in
-  (match st, st' with
-  | Const(v), Const(v') -> Const (v || v')
-  | _, _ -> Or (st, st'))
-| Not (t) -> (match simpl t with
-  | Const(v) -> Const(not v)
-  | st -> Not (st))
-| Const v -> Const v
-| Var v -> Var v
-;;
-
-(* actualize value *)
-let unconst b = match b with 
-| Const (b) -> b
-| _ -> failwith "not a const"
-;;
-
-(* remove negation of expresion expect for var / const *)
-let rec remneg b = match b with 
-| Not (Not (b')) -> remneg b'
-| Not (And (b', b'')) -> Or (remneg (Not b'), remneg (Not b''))
-| Not (Or (b', b'')) -> And (remneg (Not b'), remneg (Not b''))
-| Not (Const b') -> Const (not b')
-| Not b' -> Not (remneg b')
-| And (b', b'') -> And (remneg b', remneg b'')
-| Or (b', b'') -> Or (remneg b', remneg b'')
-| _ -> b
-;;
+let rec fv b = 
+  let rec fvi c = match c with
+  | [] -> None
+  | (Var f)::c' -> Some(f)
+  | (NVar f)::c' -> Some(f)
+  | _::c' -> fvi c'
+in match b with
+| [] -> None
+| x :: b' -> (match fvi x with 
+  | None -> fv b'
+  | Some(f) -> Some(f)
+);;
 
 
-(* distribute or over and *)
-(* For example, A or (B and C) becomes (A or B) and (A or C). *)
-let rec dist b = match b with 
-| Or (And (y, z), x)
-| Or (x, And (y, z)) -> And (Or (dist x, dist y), Or (dist x, dist z))
-| Or (x, y) -> Or (dist x, dist y)
-| And (x, y) -> And (dist x, dist y)
-| Not (x) -> Not (dist x)
-| _ -> b
-;;
-
-
-(* transform to cnf *)
-let rec cnf b =
-  let b' = dist b |> remneg in
-  if b' = b then b else cnf b'
-;;
-
-
-(* eliminate literal which have always the same polarity *)
-module LS = Set.Make(Int);;
-
-let rec literals b = match b with 
-| Var x -> LS.of_list [x]
-| Not b' -> literals b'
-| And (x, x') -> LS.union (literals x) (literals x')
-| Or (x, x') -> LS.union (literals x) (literals x')
-| _ -> LS.empty
-;;
-
-(* evalute polarity of v; we can do this with the other function for optimization *)
-let rec lit_polarity b v = match b with 
-| Var x when x=v -> `P
-| Not (Var x) when x=v -> `N
-| Or (x, x')
-| And (x, x') -> (
-  match lit_polarity x v, lit_polarity x' v with
-  | `P, `O
-  | `O, `P
-  | `P, `P -> `P
-
-  | `N, `O
-  | `O, `N
-  | `N, `N -> `N
-  
-  | `P, `N
-  | `N, `P
-  | `M, _
-  | _, `M -> `M
-
-  | _, _ -> `O
-)  
-| _ -> `O
-;;
-
-(* returns a new b with literal elimination, returning eliminated values *)
-let lit_elim b = 
-  let rec rem_lit b v = match lit_polarity b v with 
-  | `P -> Printf.printf "remvoed pos\n%!"; `P, repl b v true
-  | `N -> Printf.printf "remvoed neg\n%!"; `N, repl b v false
-  | _ -> `O, b
+let unconst b = 
+  let unc l = 
+    if l = [Const (false)] then 
+      false 
+    else if l = [Const (true)] then 
+      true 
+    else (
+      printf "%s\n%!" (pp_clause l);
+      failwith "not a const"
+    )
   in
-  let lits = literals b |> LS.elements in 
-  List.fold_left (fun c x -> 
-    match rem_lit (snd c) x with
-    | `P, b' -> (x, true)::(fst c), b'
-    | `N, b' -> (x, false)::(fst c), b'
-    | `O, b' -> (fst c), b'
-  ) ([],b) lits
+  let b' = List.map unc b in
+  let rec solve_cls cl = match cl with 
+  | [] -> true
+  | false::cl' -> false
+  | true::cl' -> solve_cls cl'
+  in solve_cls b'
+;;
+
+(* remove variable with same polarity *)
+let same_polarity_removal b = 
+  let push_pol pl x p = 
+    if List.mem_assoc x pl then (
+      if (List.assoc x pl) = p then pl 
+      else (x,`M)::(List.remove_assoc x pl)
+    ) else
+      (x,p)::pl
+  in
+  let rec cl_pol c pl = match c with 
+  | [] -> pl
+  | (Var x)::xl' -> cl_pol xl' (push_pol pl x `P)
+  | (NVar x)::xl' -> cl_pol xl' (push_pol pl x `N)
+  in
+  let rec pol c pl = match c with
+  | [] -> pl 
+  | x::xl' -> pol xl' (cl_pol x pl)
+  in 
+  let vars = pol b [] |> List.filter (fun (x,p) -> p <> `M) |> List.map (fun (x,p) -> (x,p = `P)) in
+  let rec repl_pol b' pol = match pol with
+  | [] -> b'
+  | (x,v)::p' -> repl_pol (repl b' x v) p'
+  in
+  (vars, repl_pol b vars)
 ;;

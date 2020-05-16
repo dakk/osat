@@ -10,9 +10,7 @@ B /home/dakk/.opam/default/lib/dolmen/std
 B /home/dakk/.opam/default/lib/dolmen/tptp
 B /home/dakk/.opam/default/lib/dolmen/zf
 B /home/dakk/.opam/default/lib/menhirLib
-B /usr/lib/ocaml
 B ../_build/default/src/.osat.eobjs/byte
-B ../_build/default/src/.osat2.eobjs/byte
 S /home/dakk/.opam/default/lib/dolmen
 S /home/dakk/.opam/default/lib/dolmen/class
 S /home/dakk/.opam/default/lib/dolmen/dimacs
@@ -24,6 +22,5 @@ S /home/dakk/.opam/default/lib/dolmen/std
 S /home/dakk/.opam/default/lib/dolmen/tptp
 S /home/dakk/.opam/default/lib/dolmen/zf
 S /home/dakk/.opam/default/lib/menhirLib
-S /usr/lib/ocaml
 S .
-FLG -open Dune__exe -w @1..3@5..28@30..39@43@46..47@49..57@61..62-40 -strict-sequence -strict-formats -short-paths -keep-locs -warn-error -A -open Dune__exe -w @1..3@5..28@30..39@43@46..47@49..57@61..62-40 -strict-sequence -strict-formats -short-paths -keep-locs -warn-error -A
+FLG -open Dune__exe -w @1..3@5..28@30..39@43@46..47@49..57@61..62-40 -strict-sequence -strict-formats -short-paths -keep-locs -warn-error -A
