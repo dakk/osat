@@ -28,8 +28,8 @@ end
 
 module DPLL = struct
   let rec satisfiable b = 
-    (* let s', b = Cnf3.same_polarity_removal b in
-    Printf.printf "S %d replaced\n%!" (List.length s'); *)
+    let s', b = Cnf3.unit_propagation b in
+    let s'', b = Cnf3.same_polarity_removal b in
     match fv b with
   | None -> unconst b 
   | Some (v) -> 
@@ -38,39 +38,19 @@ module DPLL = struct
     satisfiable @@ simpl (repl b v false)
   ;;
 
-
-  let rec solve2 b = 
-    let s', b = Cnf3.unit_propagation b in
+  let rec solve b = 
     let s'', b = Cnf3.pure_polarity_removal b in
     match fv b with 
   | None -> if unconst b then s' @ s'' @ [] else failwith "not a good solution"
   | Some (v) ->
     try 
-      let tg = solve2 @@ simpl (repl b v true) in
+      let tg = solve @@ simpl (repl b v true) in
       (v,true)::(s' @ s'' @ tg)
     with | _ ->  try 
-      let fg = solve2 @@ simpl (repl b v false) in
+      let fg = solve @@ simpl (repl b v false) in
       (v,false)::(s' @ s'' @ fg)
     with | _ -> 
       failwith "no solution"
-  ;;
-
-  let rec solve b = 
-    let s', b = Cnf3.unit_propagation b in
-    let s'', b = Cnf3.pure_polarity_removal b in
-    match fv b with 
-  | None -> []
-  | Some (v) ->
-    let tg = simpl (repl b v true) in
-    if satisfiable tg then (
-      (v,true)::(s' @ s'' @ solve tg)
-    ) else (
-      let fg = simpl (repl b v false) in
-      if satisfiable fg then 
-        (v,false)::(s' @ s'' @ solve fg)
-      else 
-        failwith "no solution available"
-    )
   ;;
 end
 
