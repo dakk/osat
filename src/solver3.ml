@@ -43,7 +43,7 @@ module DPLL = struct
     let s', b = Cnf3.unit_propagation b in
     let s'', b = Cnf3.pure_polarity_removal b in
     match fv b with 
-  | None -> if unconst b then [] else failwith "not a good solution"
+  | None -> if unconst b then s' @ s'' @ [] else failwith "not a good solution"
   | Some (v) ->
     try 
       let tg = solve2 @@ simpl (repl b v true) in
