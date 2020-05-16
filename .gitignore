@@ -1,2 +1,3 @@
 _build
-test/uf20/*
+test/uf*
+test/cbs*

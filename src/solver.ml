@@ -1,27 +1,30 @@
-open Bexp;;
+open Cnf;;
 
-let rec satisfiable b = match fv b with
-| None -> unconst b 
-| Some (v) -> 
-  satisfiable @@ simpl (repl b v true) 
-  || 
-  satisfiable @@ simpl (repl b v false)
-;;
+module Bt = struct
+  let rec satisfiable b = match fv b with
+  | None -> unconst b 
+  | Some (v) -> 
+    satisfiable @@ simpl (repl b v true) 
+    || 
+    satisfiable @@ simpl (repl b v false)
+  ;;
 
-let rec solve b = match fv b with 
-| None -> []
-| Some (v) ->
-  let tg = simpl (repl b v true) in
-  if satisfiable tg then (
-    (v,true)::(solve tg)
-  ) else (
-    let fg = simpl (repl b v false) in
-    if satisfiable fg then 
-      (v,false)::(solve fg)
-    else 
-      failwith "no solution available"
-  )
-;;
+  let rec solve b = match fv b with 
+  | None -> []
+  | Some (v) ->
+    let tg = simpl (repl b v true) in
+    if satisfiable tg then (
+      (v,true)::(solve tg)
+    ) else (
+      let fg = simpl (repl b v false) in
+      if satisfiable fg then 
+        (v,false)::(solve fg)
+      else 
+        failwith "no solution available"
+    )
+  ;;
+end
+
 
 let rec print s = match s with 
 | [] -> ()
