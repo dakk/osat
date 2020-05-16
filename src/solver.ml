@@ -10,7 +10,7 @@ end
 
 let rec print_sol s = match s with 
 | [] -> ()
-| (v,vv)::s' -> Printf.printf "%d => %b\n%!" v vv; print_sol s'
+| (v,vv)::s' -> Printf.printf "%d => %b\t%!" v vv; print_sol s'
 ;;
 
 let rec verify_sol b s = match b with 

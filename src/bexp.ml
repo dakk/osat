@@ -171,13 +171,18 @@ let rec lit_polarity b v = match b with
 | _ -> `O
 ;;
 
-
+(* returns a new b with literal elimination, returning eliminated values *)
 let lit_elim b = 
   let rec rem_lit b v = match lit_polarity b v with 
-  | `P -> Printf.printf "remvoed pos\n%!"; repl b v true
-  | `N -> Printf.printf "remvoed neg\n%!";repl b v false
-  | _ -> b
+  | `P -> Printf.printf "remvoed pos\n%!"; `P, repl b v true
+  | `N -> Printf.printf "remvoed neg\n%!"; `N, repl b v false
+  | _ -> `O, b
   in
   let lits = literals b |> LS.elements in 
-  List.fold_left (fun c x -> rem_lit c x) b lits
+  List.fold_left (fun c x -> 
+    match rem_lit (snd c) x with
+    | `P, b' -> (x, true)::(fst c), b'
+    | `N, b' -> (x, false)::(fst c), b'
+    | `O, b' -> (fst c), b'
+  ) ([],b) lits
 ;;
