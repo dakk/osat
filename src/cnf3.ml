@@ -13,8 +13,17 @@ module Clause3 = struct
     | Var (x) when x = l -> Const v
     | NVar (x) when x = l -> Const (not v)
     | _ -> el
-    in 
-    (re a, re b, re c)
+    in (re a, re b, re c)
+  ;;
+
+  let is_unit c = match c with
+  | Const b, Const b', Var v
+  | Const b, Var v, Const b'
+  | Var v, Const b, Const b' -> Some(v, true)
+  | Const b, Const b', NVar v
+  | Const b, NVar v, Const b'
+  | NVar v, Const b, Const b' -> Some(v, false)
+  | _, _, _ -> None
   ;;
 
   let is be (a,b,c)=
@@ -44,17 +53,18 @@ module Clause3 = struct
 end
 
 
-let rec pp_cnf c = match c with
-| [] -> "\n"
-| c'::cl' -> sprintf "%s\n%s" (Clause3.pp c') (pp_cnf cl')
-;;
-
+let rec pp c = List.fold_left (fun acc x -> sprintf "%s\n%s" acc (Clause3.pp x));;
+  
 
 (* replace from cnf c literal l with v *)
-let rec repl c l v = match c with
-| [] -> []
-| x::c' -> (Clause3.repl x l v)::(repl c' l v)
-;;
+let rec repl c l v = List.map (fun x -> Clause3.repl x l v) c;;
+
+(* replace multiple literals*)
+let rec repls c la = List.map (fun x -> 
+  List.fold_left (fun cacc (l,v) -> 
+    Clause3.repl cacc l v
+  ) x la
+) c;;
 
 (* simplify a cnf *)
 let rec simpl b = 
@@ -80,13 +90,14 @@ in match b with
   | Some(f) -> Some(f)
 );;
 
-
-(* an optimization could be selecting as first fv the most used; this will cause a simplification *)
-(* let rec mffv b *)
-
+(* returns true if all clause are true, false otherwise *)
 let unconst b = 
   let unc l = 
-    if Clause3.is_false l then false else if Clause3.is_true l then true else (
+    if Clause3.is_false l then 
+      false 
+    else if Clause3.is_true l then 
+      true 
+    else (
       printf "%s\n%!" (Clause3.pp l);
       failwith "not a const"
     )
@@ -102,11 +113,10 @@ let unconst b =
 (* remove variable with same polarity *)
 let pure_polarity_removal b = 
   let push_pol pl x p = 
-    if List.mem_assoc x pl then (
+    try 
       if (List.assoc x pl) = p then pl 
       else (x,`M)::(List.remove_assoc x pl)
-    ) else
-      (x,p)::pl
+    with | _ -> (x,p)::pl
   in
   let rec cl_pol c pl = match c with 
   | [] -> pl
@@ -118,7 +128,7 @@ let pure_polarity_removal b =
   | [] -> pl 
   | x::xl' -> pol xl' (cl_pol (Clause3.to_list x) pl)
   in 
-  let vars = pol b [] |> List.filter (fun (x,p) -> p <> `M) |> List.map (fun (x,p) -> (x,p = `P)) in
+  let vars = pol b [] |> List.filter_map (fun (x,p) -> if p = `M then None else Some(x,p = `P)) in
   let rec repl_pol b' pol = match pol with
   | [] -> b'
   | (x,v)::p' -> repl_pol (repl b' x v) p'
@@ -127,4 +137,10 @@ let pure_polarity_removal b =
 ;;
 
 
-let unit_propagation b = [], b;;
+let unit_propagation b = 
+  let units = List.fold_left (fun acc c -> match Clause3.is_unit c with
+  | None -> acc
+  | Some(v, bb) -> (v,bb)::acc
+  ) [] b in 
+  units, repls b units
+;;

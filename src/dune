@@ -1,7 +1,7 @@
 (executable
  (name osat)
  (libraries dolmen)
- (modules osat cnf cnf3 bexp parser parser3 solver solver3))
+ (modules osat cnf cnf3 bexp parser solver))
 
 (env
   (dev

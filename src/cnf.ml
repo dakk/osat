@@ -85,8 +85,6 @@ in match b with
 );;
 
 
-(* an optimization could be selecting as first fv the most used; this will cause a simplification *)
-(* let rec mffv b *)
 
 let unconst b = 
   let unc l = 
@@ -131,4 +129,10 @@ let same_polarity_removal b =
   | (x,v)::p' -> repl_pol (repl b' x v) p'
   in
   (vars, repl_pol b vars)
+;;
+
+
+(* transforms b in cnf to b in cnf3 *)
+let to_cnf3 b = 
+  b
 ;;
