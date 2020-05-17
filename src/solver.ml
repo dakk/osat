@@ -67,5 +67,5 @@ let rec verify b s =
   | [] -> b'
   | (v,vv)::s' -> replit (repl b' v vv) s'
   in 
-  unconst @@ simpl @@ replit b s
+  unconst @@ simpl @@ repls b s
 ;;

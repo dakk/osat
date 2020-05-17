@@ -9,8 +9,8 @@ let main () =
     try 
       let s = Solver.DPLL.solve t in
       printf "solution found:\n%!";
-      Solver.print s;
-      printf "\nverify sol: %b\n" (Solver.verify t s)
+      Solver.print s
+      (* printf "\nverify sol: %b\n" (Solver.verify t s) *)
     with | _ -> printf "no solution found\n%!";
   )
 in main();;
