@@ -67,19 +67,15 @@ let rec repls c la = List.map (fun x ->
 ) c;;
 
 (* simplify a cnf *)
-let rec simpl b = 
-  List.fold_left (fun acc c -> 
-    if Clause3.is_true c then acc else c::acc
-  ) [] b
-;;
+let rec simpl b = List.fold_left (fun acc c -> if Clause3.is_true c then acc else c::acc) [] b;;
 
 (* return first free variable *)
 let rec fv b = 
   let rec fvi c = match c with
   | NVar f, _, _
-  | Var f, _, _ -> Some(f)
+  | Var f, _, _
   | _, NVar f, _
-  | _, Var f, _ -> Some(f)
+  | _, Var f, _ 
   | _, _, NVar f
   | _, _, Var f -> Some(f)
   | _, _, _ -> None
@@ -90,6 +86,39 @@ in match b with
   | Some(f) -> Some(f)
 );;
 
+(* return most present literal *)
+let mpv b =
+  let vtbl = Hashtbl.create 16 in
+  let pushv v = match Hashtbl.find_opt vtbl v with 
+  | None -> Hashtbl.add vtbl v 1 
+  | Some(n) -> Hashtbl.replace vtbl v (n+1)
+  in
+  let rec iter c = match c with 
+  | [] -> 
+    if Hashtbl.length vtbl = 0 then 
+      None 
+    else 
+      Some(fst (Hashtbl.fold (fun v n acc -> if n > snd acc then (v,n) else acc) vtbl (0, 0)))
+  | x::c' -> (
+    (match x with
+    | NVar f, _, _
+    | Var f, _, _ -> pushv f
+    | _, _, _ -> ());
+    (match x with 
+    | _, NVar f, _
+    | _, Var f, _ -> pushv f
+    | _, _, _ -> ());
+    (match x with
+    | _, _, NVar f
+    | _, _, Var f -> pushv f
+    | _, _, _ -> ());
+    iter c'
+  ) in iter b
+;;
+
+(* literal selector wrapper *)
+let lit_select = mpv;;
+
 (* returns true if all clause are true, false otherwise *)
 let unconst b = 
   let unc l = 
@@ -97,50 +126,64 @@ let unconst b =
       false 
     else if Clause3.is_true l then 
       true 
-    else (
-      printf "%s\n%!" (Clause3.pp l);
+    else
       failwith "not a const"
-    )
   in
-  let b' = List.map unc b in
   let rec solve_cls cl = match cl with 
   | [] -> true
   | false::cl' -> false
   | true::cl' -> solve_cls cl'
-  in solve_cls b'
+  in solve_cls @@ List.map unc b
 ;;
 
 (* remove variable with same polarity *)
 let pure_polarity_removal b = 
-  let push_pol pl x p = 
-    try 
-      if (List.assoc x pl) = p then pl 
-      else (x,`M)::(List.remove_assoc x pl)
-    with | _ -> (x,p)::pl
+  let ptbl = Hashtbl.create 4 in
+  let push_pol x p = match Hashtbl.find_opt ptbl x with 
+  | None -> Hashtbl.add ptbl x p 
+  | Some (v) -> if v <> p then Hashtbl.replace ptbl x `M else ()
   in
-  let rec cl_pol c pl = match c with 
-  | [] -> pl
-  | (Var x)::xl' -> cl_pol xl' (push_pol pl x `P)
-  | (NVar x)::xl' -> cl_pol xl' (push_pol pl x `N)
-  | _::xl' -> cl_pol xl' pl
-  in
-  let rec pol c pl = match c with
-  | [] -> pl 
-  | x::xl' -> pol xl' (cl_pol (Clause3.to_list x) pl)
-  in 
-  let vars = pol b [] |> List.filter_map (fun (x,p) -> if p = `M then None else Some(x,p = `P)) in
-  let rec repl_pol b' pol = match pol with
-  | [] -> b'
-  | (x,v)::p' -> repl_pol (repl b' x v) p'
-  in
-  (vars, repl_pol b vars)
+  List.iter (fun (a,b,c) -> 
+    let intern' v = match v with 
+    | Var x -> push_pol x `P
+    | NVar x -> push_pol x `N
+    | _ -> ()
+    in intern' a; intern' b;intern' c  
+  ) b;
+  Hashtbl.fold (fun x p (vacc, bacc) -> 
+    if p = `M then  vacc, bacc
+    else            (x,p = `P)::vacc, repl bacc x (p = `P)
+  ) ptbl ([], b)
 ;;
+
+(* let pure_polarity_removal b = 
+  let ptbl = Array.make 125 `O in
+  let push_pol x p = 
+    let ca = Array.get ptbl x in
+    if ca = `O then Array.set ptbl x p else 
+    if ca <> p then Array.set ptbl x `M else ()
+  in
+  List.iter (fun (a,b,c) -> 
+    let intern' v = match v with 
+    | Var x -> push_pol x `P
+    | NVar x -> push_pol x `N
+    | _ -> ()
+    in intern' a; intern' b;intern' c  
+  ) b;
+  let ll = Array.length ptbl in
+  let rec ite b vacc i = 
+    if i >= ll then (vacc, b) else (
+    let el = Array.get ptbl i in
+    if el = `P then ite (repl b i true) ((i,true)::vacc) (i+1)
+    else if el = `N then ite (repl b i true) ((i,false)::vacc) (i+1)
+    else ite b vacc (i+1)
+  ) in ite b [] 0
+;; *)
 
 
 let unit_propagation b = 
   let units = List.fold_left (fun acc c -> match Clause3.is_unit c with
   | None -> acc
   | Some(v, bb) -> (v,bb)::acc
-  ) [] b in 
-  units, repls b units
+  ) [] b in units, repls b units
 ;;

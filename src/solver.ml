@@ -1,7 +1,9 @@
 open Cnf3;;
 
+(* todo: transform this module as a functor over representation modules (Cnf3/Cnf/Bexp) *)
+
 module Bt = struct
-  let rec satisfiable b = match fv b with
+  let rec satisfiable b = match lit_select b with
   | None -> unconst b 
   | Some (v) -> 
     satisfiable @@ simpl (repl b v true) 
@@ -9,7 +11,7 @@ module Bt = struct
     satisfiable @@ simpl (repl b v false)
   ;;
 
-  let rec solve b = match fv b with 
+  let rec solve b = match lit_select b with 
   | None -> []
   | Some (v) ->
     let tg = simpl (repl b v true) in
@@ -30,7 +32,7 @@ module DPLL = struct
   let rec satisfiable b = 
     let s', b = Cnf3.unit_propagation b in
     let s'', b = Cnf3.pure_polarity_removal b in
-    match fv b with
+    match lit_select b with
   | None -> unconst b 
   | Some (v) -> 
     satisfiable @@ simpl (repl b v true) 
@@ -41,7 +43,7 @@ module DPLL = struct
   let rec solve b = 
     let s', b = Cnf3.unit_propagation b in
     let s'', b = Cnf3.pure_polarity_removal b in
-    match fv b with 
+    match lit_select b with 
   | None -> if unconst b then s' @ s'' @ [] else failwith "not a good solution"
   | Some (v) ->
     try 
@@ -57,7 +59,7 @@ end
 
 let rec print s = match s with 
 | [] -> ()
-| (v,vv)::s' -> Printf.printf "%d => %b\t%!" v vv; print s'
+| (v,vv)::s' -> Printf.printf "%d: %s\t%!" v (if vv then "t" else "f"); print s'
 ;;
 
 let rec verify b s = 

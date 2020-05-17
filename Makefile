@@ -1,6 +1,7 @@
 all:
-	dune build && \
-	time ./_build/default/src/osat.exe test/cbs100/CBS_k3_n100_m403_b10_1.cnf
+	dune build
+	# time ./_build/default/src/osat.exe test/uf/uf250-01.cnf
+	# time ./_build/default/src/osat.exe test/cbs100/CBS_k3_n100_m403_b10_0.cnf
 	# time ./_build/default/src/osat.exe test/hole.cnf
 	# time ./_build/default/src/osat.exe test/uf20/uf20-01.cnf
 	# && time ./_build/default/src/osat.exe test/cbs100/CBS_k3_n100_m403_b10_0.cnf
