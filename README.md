@@ -6,6 +6,7 @@ literal with most occurences.
 ```
 opam install dolmen
 make
-./_build/default/src/osat.exe path/of/3cnf/file.cnf
+make install
+osat path/of/3cnf/file.cnf
 ```
 
