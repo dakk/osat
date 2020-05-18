@@ -53,6 +53,18 @@ module Clause3 = struct
 end
 
 
+(* return the list of literals *)
+module SLit = Set.Make(Int);;
+
+let vars b = 
+  let extract l = match l with | Var x -> SLit.singleton x | NVar x -> SLit.singleton x in
+  let rec vars' b = match b with 
+  | [] -> SLit.empty
+  | (a,b,c)::b' -> SLit.union (SLit.union (extract a) (extract b)) (SLit.union (extract c) (vars' b'))
+  in 
+  SLit.elements @@ vars' b
+;;
+
 let rec pp c = List.fold_left (fun acc x -> sprintf "%s\n%s" acc (Clause3.pp x));;
   
 
